@@ -36,7 +36,6 @@
         .tab-button { padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: 600; transition: all 0.2s; }
         .tab-button.active { background-color: #4f46e5; color: white; }
         .tab-button:not(.active) { background-color: #e0e7ff; color: #4f46e5; }
-
     </style>
 </head>
 <body class="p-4 sm:p-8">
@@ -324,23 +323,40 @@
     <div id="alert-modal" class="modal"><div class="modal-content text-center"><h3 id="alert-modal-title" class="text-xl font-bold mb-4"></h3><p id="alert-modal-message" class="mb-6"></p><button id="alert-modal-close-button" class="btn btn-primary">ตกลง</button></div></div>
     <div id="confirm-modal" class="modal"><div class="modal-content text-center"><h3 id="confirm-modal-title" class="text-xl font-bold mb-4"></h3><p id="confirm-modal-message" class="mb-6"></p><div class="flex justify-center gap-4"><button id="confirm-modal-no-button" class="btn bg-gray-300">ยกเลิก</button><button id="confirm-modal-yes-button" class="btn btn-danger">ยืนยัน</button></div></div></div>
     
-    <!-- Modal การอนุมัติคำสั่ง (ใหม่) -->
     <div id="command-approval-modal" class="modal">
         <div class="modal-content" style="max-width: 500px;">
-            <h3 class="text-xl font-bold mb-4">ยืนยันการออกคำสั่ง</h3>
-            <p class="mb-4">ระบบจะสร้างคำสั่งไปราชการตามจำนวนผู้เดินทางโดยอัตโนมัติ:</p>
-            <ul class="list-disc list-inside mb-4 text-sm text-gray-600">
-                <li>1 คน → คำสั่งเดินทาง 1 คน</li>
-                <li>2-5 คน → คำสั่งเดินทาง 2-5 คน</li>
-                <li>6 คนขึ้นไป → คำสั่งเดินทาง 6 คนขึ้นไป</li>
-            </ul>
-            <div class="flex justify-end gap-4 mt-6">
-                <button type="button" class="btn bg-gray-300" id="command-approval-modal-close-button">ยกเลิก</button>
-                <button type="button" class="btn btn-primary" id="confirm-command-approval">
-                    <div id="confirm-command-loader" class="loader hidden"></div>
-                    <span>ยืนยันการออกคำสั่ง</span>
-                </button>
-            </div>
+            <h3 class="text-xl font-bold mb-4">เลือกรูปแบบคำสั่งเพื่ออนุมัติ</h3>
+            <form id="command-approval-form">
+                <input type="hidden" id="approval-request-id">
+                <p class="mb-4">กรุณาเลือกรูปแบบคำสั่งที่ถูกต้องตามจำนวนผู้เดินทาง</p>
+                <div class="space-y-3">
+                    <div class="flex items-center justify-between p-2 rounded-md hover:bg-gray-100">
+                        <label for="template-solo" class="flex items-center cursor-pointer flex-grow">
+                            <input type="radio" id="template-solo" name="templateType" value="solo" required class="mr-3 h-4 w-4">
+                            เดินทาง 1 คน
+                        </label>
+                        <button type="button" id="preview-solo" class="text-sm text-indigo-600 hover:underline font-semibold">ดูตัวอย่าง</button>
+                    </div>
+                    <div class="flex items-center justify-between p-2 rounded-md hover:bg-gray-100">
+                        <label for="template-small" class="flex items-center cursor-pointer flex-grow">
+                            <input type="radio" id="template-small" name="templateType" value="groupSmall" class="mr-3 h-4 w-4">
+                            เดินทาง 2-5 คน
+                        </label>
+                        <button type="button" id="preview-small" class="text-sm text-indigo-600 hover:underline font-semibold">ดูตัวอย่าง</button>
+                    </div>
+                    <div class="flex items-center justify-between p-2 rounded-md hover:bg-gray-100">
+                        <label for="template-large" class="flex items-center cursor-pointer flex-grow">
+                            <input type="radio" id="template-large" name="templateType" value="groupLarge" class="mr-3 h-4 w-4">
+                            เดินทาง 6 คนขึ้นไป
+                        </label>
+                        <button type="button" id="preview-large" class="text-sm text-indigo-600 hover:underline font-semibold">ดูตัวอย่าง</button>
+                    </div>
+                </div>
+                <div class="flex justify-end gap-4 mt-6">
+                    <button type="button" class="btn bg-gray-300" id="command-approval-modal-close-button">ยกเลิก</button>
+                    <button type="submit" class="btn btn-primary">ยืนยันและออกคำสั่ง</button>
+                </div>
+            </form>
         </div>
     </div>
     
@@ -452,7 +468,6 @@
         </div>
     </div>
 
-
     <script>
         // ใช้ URL ของ Google Apps Script ที่คุณให้มา
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxq8fkHgDOyYjpZgy4dngT8n-Z3zSBjfJ0R7lomuUxoI63vqpdOP-7nlodlV-BsXnksaA/exec";
@@ -547,7 +562,7 @@
         function toggleLoader(buttonId, show) {
             const button = document.getElementById(buttonId);
             if (!button) {
-                console.error(`Button with id '${buttonId}' not found`);
+                console.warn(`Button with id '${buttonId}' not found`);
                 return;
             }
             
@@ -619,7 +634,6 @@
             } else {
                 showLoginScreen();
             }
-            
         });
 
         // --- INITIALIZATION ---
@@ -658,7 +672,6 @@
             document.getElementById('logout-button').addEventListener('click', showLoginScreen);
             document.getElementById('show-register-modal-button').addEventListener('click', () => document.getElementById('register-modal').style.display = 'flex');
             document.getElementById('register-form').addEventListener('submit', handleRegister);
-            document.getElementById('confirm-command-approval').addEventListener('click', handleConfirmCommandApproval);
 
             // Navigation
             document.getElementById('navigation').addEventListener('click', (e) => {
@@ -683,9 +696,6 @@
             document.getElementById('dispatch-modal-close-button').addEventListener('click', () => document.getElementById('dispatch-modal').style.display = 'none');
             document.getElementById('send-memo-modal-close-button').addEventListener('click', () => document.getElementById('send-memo-modal').style.display = 'none');
 
-            // การจัดการ Modal การอนุมัติคำสั่งใหม่
-            document.getElementById('confirm-command-approval').addEventListener('click', handleConfirmCommandApproval);
-
             // Forms
             document.getElementById('request-form').addEventListener('submit', handleRequestFormSubmit);
             document.getElementById('form-add-attendee').addEventListener('click', () => addAttendeeField());
@@ -707,6 +717,7 @@
             document.getElementById('profile-form').addEventListener('submit', handleProfileUpdate);
             document.getElementById('password-form').addEventListener('submit', handlePasswordUpdate);
             document.getElementById('show-password-toggle').addEventListener('change', togglePasswordVisibility);
+            document.getElementById('command-approval-form').addEventListener('submit', handleCommandApproval);
             document.getElementById('admin-memo-action-form').addEventListener('submit', handleAdminMemoActionSubmit);
             document.getElementById('dispatch-form').addEventListener('submit', handleDispatchFormSubmit);
             
@@ -748,38 +759,6 @@
                 showAlert("ข้อผิดพลาดระบบ", "เกิดข้อผิดพลาดที่ไม่คาดคิด กรุณารีเฟรชหน้าเว็บ");
             });
         }
-
-        // ฟังก์ชันจัดการการยืนยันออกคำสั่ง
-async function handleConfirmCommandApproval() {
-    const requestId = document.getElementById('approval-request-id').value;
-    const button = document.getElementById('confirm-command-approval');
-    
-    if (!requestId) {
-        showAlert('ผิดพลาด', 'ไม่พบ ID คำขอ');
-        return;
-    }
-    
-    try {
-        toggleLoader('confirm-command-approval', true);
-        const result = await apiCall('POST', 'approveCommand', { requestId: requestId });
-        showAlert('สำเร็จ', result.message);
-        document.getElementById('command-approval-modal').style.display = 'none';
-        
-        // โหลดข้อมูลใหม่และแสดงไฟล์ PDF ถ้ามี
-        setTimeout(async () => {
-            await fetchAllRequestsForCommand();
-            if (result.url) {
-                window.open(result.url, '_blank');
-            }
-        }, 1000);
-        
-    } catch (error) {
-        showAlert('ผิดพลาด', 'ไม่สามารถออกคำสั่งได้: ' + error.message);
-    } finally {
-        toggleLoader('confirm-command-approval', false);
-    }
-}
-
         
         // --- AUTHENTICATION HANDLERS ---
         
@@ -1697,97 +1676,96 @@ async function handleConfirmCommandApproval() {
                 loader.classList.add('hidden');
             }
         }
-        
         function renderCommandRequestsList(requests) {
-    const container = document.getElementById('command-requests-list');
-    const noDataMsg = document.getElementById('no-command-requests-message');
-    if (requests.length === 0) {
-        noDataMsg.classList.remove('hidden');
-        container.classList.add('hidden');
-        return;
-    }
-    noDataMsg.classList.add('hidden');
-    container.classList.remove('hidden');
-    
-    const table = document.createElement('table');
-    table.className = 'min-w-full divide-y divide-gray-200';
-    table.innerHTML = `
-        <thead class="bg-gray-50">
-            <tr>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID คำขอ</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ผู้ขอ</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">วัตถุประสงค์</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">สถานะคำสั่ง</th>
-                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">การดำเนินการ</th>
-            </tr>
-        </thead>
-        <tbody class="bg-white divide-y divide-gray-200"></tbody>
-    `;
-    const tbody = table.querySelector('tbody');
-    requests.forEach(req => {
-        const hasCommand = req.commandPdfUrl && req.commandPdfUrl.trim() !== '';
-        const hasDispatch = req.dispatchBookPdfUrl && req.dispatchBookPdfUrl.trim() !== '';
-        
-        const row = tbody.insertRow();
-        row.innerHTML = `
-            <td class="px-4 py-4 whitespace-nowrap">${req.id}</td>
-            <td class="px-4 py-4 whitespace-nowrap">${req.requesterName}</td>
-            <td class="px-4 py-4 whitespace-nowrap">${req.purpose}</td>
-            <td class="px-4 py-4 whitespace-nowrap">
-                <span class="px-2 py-1 text-xs rounded-full ${
-                    req.commandStatus === 'อนุมัติแล้ว' ? 'bg-green-100 text-green-800' : 
-                    req.commandStatus === 'รอการอนุมัติ' ? 'bg-yellow-100 text-yellow-800' :
-                    'bg-gray-100 text-gray-800'
-                }">
-                    ${req.commandStatus || 'รอการอนุมัติ'}
-                </span>
-            </td>
-            <td class="px-4 py-4 whitespace-nowrap text-right space-x-2">
-                <!-- แสดงทั้งปุ่มเดิมและปุ่มดาวน์โหลดหากมีไฟล์แล้ว -->
-                ${hasDispatch 
-                    ? `<a href="${req.dispatchBookPdfUrl}" target="_blank" class="btn btn-sm bg-green-600 text-white">ดาวน์โหลดหนังสือส่ง</a>`
-                    : `<button class="btn btn-sm bg-purple-600 text-white" data-action="create-dispatch" data-request-id="${req.id}">ออกหนังสือส่ง</button>`
+            const container = document.getElementById('command-requests-list');
+            const noDataMsg = document.getElementById('no-command-requests-message');
+             if (requests.length === 0) {
+                noDataMsg.classList.remove('hidden');
+                container.classList.add('hidden');
+                return;
+            }
+            noDataMsg.classList.add('hidden');
+            container.classList.remove('hidden');
+            
+            const table = document.createElement('table');
+            table.className = 'min-w-full divide-y divide-gray-200';
+            table.innerHTML = `
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID คำขอ</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ผู้ขอ</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">วัตถุประสงค์</th>
+                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">การดำเนินการ</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200"></tbody>
+            `;
+            const tbody = table.querySelector('tbody');
+            requests.forEach(req => {
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td class="px-4 py-4 whitespace-nowrap">${req.id}</td>
+                    <td class="px-4 py-4 whitespace-nowrap">${req.requesterName}</td>
+                    <td class="px-4 py-4 whitespace-nowrap">${req.purpose}</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-right space-x-2">
+                        ${req.dispatchBookPdfUrl ? `<a href="${req.dispatchBookPdfUrl}" target="_blank" class="btn btn-sm bg-gray-500 text-white">ดูหนังสือส่ง</a>` : ''}
+                        <button class="btn btn-sm bg-purple-600 text-white" data-action="create-dispatch" data-request-id="${req.id}">ออกหนังสือส่ง</button>
+                        
+                        ${req.commandPdfUrl ? `<a href="${req.commandPdfUrl}" target="_blank" class="btn btn-sm bg-gray-500 text-white">ดูคำสั่ง</a>` : ''}
+                        <button class="btn btn-sm btn-success" data-action="issue-command" data-id="${req.id}">ออกคำสั่ง</button>
+                    </td>
+                `;
+            });
+
+            container.innerHTML = '';
+            container.appendChild(table);
+
+            container.addEventListener('click', async (e) => {
+                const button = e.target.closest('button[data-action]');
+                 if(!button) return;
+
+                const requestId = button.dataset.id || button.dataset.requestId;
+                const action = button.dataset.action;
+
+                const requestData = allRequestsCache.find(r => r.id === requestId);
+                if (!requestData) {
+                    showAlert('ผิดพลาด', 'ไม่พบข้อมูลคำขอ');
+                    return;
                 }
                 
-                ${hasCommand 
-                    ? `<a href="${req.commandPdfUrl}" target="_blank" class="btn btn-sm bg-blue-600 text-white">ดาวน์โหลดคำสั่ง</a>`
-                    : `<button class="btn btn-sm btn-success" data-action="issue-command" data-id="${req.id}">ออกคำสั่ง</button>`
+                if (action === 'issue-command') {
+                    document.getElementById('approval-request-id').value = requestId;
+                    document.getElementById('preview-solo').onclick = () => { if (requestData.commandPdfUrlSolo) window.open(requestData.commandPdfUrlSolo, '_blank'); };
+                    document.getElementById('preview-small').onclick = () => { if (requestData.commandPdfUrlGroupSmall) window.open(requestData.commandPdfUrlGroupSmall, '_blank'); };
+                    document.getElementById('preview-large').onclick = () => { if (requestData.commandPdfUrlGroupLarge) window.open(requestData.commandPdfUrlGroupLarge, '_blank'); };
+                    document.getElementById('command-approval-modal').style.display = 'flex';
+                } else if (action === 'create-dispatch') {
+                     document.getElementById('dispatch-request-id').value = requestId;
+                    const now = new Date();
+                    const thaiYear = now.getFullYear() + 543;
+                    const thaiMonths = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
+                    document.getElementById('dispatch-month').value = thaiMonths[now.getMonth()];
+                    document.getElementById('dispatch-year').value = thaiYear;
+                    document.getElementById('dispatch-modal').style.display = 'flex';
                 }
-            </td>
-        `;
-    });
-
-    container.innerHTML = '';
-    container.appendChild(table);
-
-    container.addEventListener('click', async (e) => {
-        const button = e.target.closest('button[data-action]');
-        if(!button) return;
-
-        const requestId = button.dataset.id || button.dataset.requestId;
-        const action = button.dataset.action;
-
-        const requestData = allRequestsCache.find(r => r.id === requestId);
-        if (!requestData) {
-            showAlert('ผิดพลาด', 'ไม่พบข้อมูลคำขอ');
-            return;
+            })
         }
-        
-        if (action === 'issue-command') {
-            // ใช้ Modal ใหม่ - แค่แสดงคำขอ ID และเปิด Modal
-            document.getElementById('approval-request-id').value = requestId;
-            document.getElementById('command-approval-modal').style.display = 'flex';
-        } else if (action === 'create-dispatch') {
-            document.getElementById('dispatch-request-id').value = requestId;
-            const now = new Date();
-            const thaiYear = now.getFullYear() + 543;
-            const thaiMonths = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
-            document.getElementById('dispatch-month').value = thaiMonths[now.getMonth()];
-            document.getElementById('dispatch-year').value = thaiYear;
-            document.getElementById('dispatch-modal').style.display = 'flex';
+        async function handleCommandApproval(e) {
+            e.preventDefault();
+            const payload = {
+                requestId: document.getElementById('approval-request-id').value,
+                templateType: document.querySelector('input[name="templateType"]:checked').value
+            };
+
+            try {
+                await apiCall('POST', 'approveCommand', payload);
+                showAlert('สำเร็จ', 'ออกคำสั่งเรียบร้อยแล้ว และสถานะถูกเปลี่ยนเป็น "เสร็จสิ้นรอออกคำสั่งไปราชการ"');
+                document.getElementById('command-approval-modal').style.display = 'none';
+                await fetchAllRequestsForCommand();
+            } catch (error) {
+                showAlert('ผิดพลาด', 'ไม่สามารถออกคำสั่งได้: ' + error.message);
+            }
         }
-    });
-}
 
         async function updateRequestStatusCommand(requestId, newStatus) {
              try {
@@ -1798,7 +1776,6 @@ async function handleConfirmCommandApproval() {
                 showAlert('ผิดพลาด', 'ไม่สามารถอัปเดตสถานะได้: ' + error.message);
             }
         }
-
 
         async function handleAdminMemoActionSubmit(e) {
             e.preventDefault();
@@ -1834,32 +1811,25 @@ async function handleConfirmCommandApproval() {
             }
         }
         
-       async function handleDispatchFormSubmit(e) {
-    e.preventDefault();
-    const payload = {
-        requestId: document.getElementById('dispatch-request-id').value,
-        dispatchMonth: document.getElementById('dispatch-month').value,
-        dispatchYear: document.getElementById('dispatch-year').value,
-        memoCount: document.getElementById('dispatch-memo-count').value,
-        commandCount: document.getElementById('dispatch-command-count').value,
-    };
-    try {
-        const result = await apiCall('POST', 'generateDispatchBook', payload);
-        document.getElementById('dispatch-modal').style.display = 'none';
-        showAlert('สำเร็จ', `สร้างหนังสือส่งสำเร็จ!`);
-        
-        // โหลดข้อมูลใหม่และแสดงไฟล์ PDF ถ้ามี
-        setTimeout(async () => {
-            await fetchAllRequestsForCommand();
-            if (result.url) {
+        async function handleDispatchFormSubmit(e) {
+            e.preventDefault();
+            const payload = {
+                requestId: document.getElementById('dispatch-request-id').value,
+                dispatchMonth: document.getElementById('dispatch-month').value,
+                dispatchYear: document.getElementById('dispatch-year').value,
+                memoCount: document.getElementById('dispatch-memo-count').value,
+                commandCount: document.getElementById('dispatch-command-count').value,
+            };
+            try {
+                const result = await apiCall('POST', 'generateDispatchBook', payload);
+                document.getElementById('dispatch-modal').style.display = 'none';
+                showAlert('สำเร็จ', `สร้างหนังสือส่งสำเร็จ!`);
                 window.open(result.url, '_blank');
+                await fetchAllRequestsForCommand();
+            } catch (error) {
+                showAlert('ผิดพลาด', 'ไม่สามารถสร้างหนังสือส่งได้: ' + error.message);
             }
-        }, 1000);
-        
-    } catch (error) {
-        showAlert('ผิดพลาด', 'ไม่สามารถสร้างหนังสือส่งได้: ' + error.message);
-    }
-}
+        }
 
         // --- CACHE MANAGEMENT ---
         function clearRequestsCache() {
