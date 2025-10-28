@@ -765,10 +765,13 @@ async function handleConfirmCommandApproval() {
         showAlert('สำเร็จ', result.message);
         document.getElementById('command-approval-modal').style.display = 'none';
         
-        // รอสักครู่แล้วโหลดข้อมูลใหม่
+        // โหลดข้อมูลใหม่และแสดงไฟล์ PDF ถ้ามี
         setTimeout(async () => {
             await fetchAllRequestsForCommand();
-        }, 500);
+            if (result.url) {
+                window.open(result.url, '_blank');
+            }
+        }, 1000);
         
     } catch (error) {
         showAlert('ผิดพลาด', 'ไม่สามารถออกคำสั่งได้: ' + error.message);
@@ -776,6 +779,7 @@ async function handleConfirmCommandApproval() {
         toggleLoader('confirm-command-approval', false);
     }
 }
+
         
         // --- AUTHENTICATION HANDLERS ---
         
@@ -1830,7 +1834,7 @@ async function handleConfirmCommandApproval() {
             }
         }
         
-        async function handleDispatchFormSubmit(e) {
+       async function handleDispatchFormSubmit(e) {
     e.preventDefault();
     const payload = {
         requestId: document.getElementById('dispatch-request-id').value,
@@ -1844,14 +1848,13 @@ async function handleConfirmCommandApproval() {
         document.getElementById('dispatch-modal').style.display = 'none';
         showAlert('สำเร็จ', `สร้างหนังสือส่งสำเร็จ!`);
         
-        if (result.url) {
-            window.open(result.url, '_blank');
-        }
-        
-        // รอสักครู่แล้วโหลดข้อมูลใหม่
+        // โหลดข้อมูลใหม่และแสดงไฟล์ PDF ถ้ามี
         setTimeout(async () => {
             await fetchAllRequestsForCommand();
-        }, 500);
+            if (result.url) {
+                window.open(result.url, '_blank');
+            }
+        }, 1000);
         
     } catch (error) {
         showAlert('ผิดพลาด', 'ไม่สามารถสร้างหนังสือส่งได้: ' + error.message);
