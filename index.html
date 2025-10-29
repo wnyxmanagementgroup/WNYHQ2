@@ -495,58 +495,80 @@
 
         // --- API HELPER FUNCTIONS ---
         
-        async function apiCall(method, action, payload = {}) {
-            let url = SCRIPT_URL;
-            const options = {
-                method: method,
-                redirect: 'follow',
-                headers: { 'Content-Type': 'text/plain;charset=utf-8', },
-            };
+        async function apiCall(method, action, payload = {}, retries = 3) {
+            for (let attempt = 0; attempt < retries; attempt++) {
+                let url = SCRIPT_URL;
+                const options = {
+                    method: method,
+                    redirect: 'follow',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8', },
+                };
 
-            if (method === 'GET') {
-                const params = new URLSearchParams({ action, ...payload, cacheBust: new Date().getTime() }); 
-                url += `?${params}`;
-            } else {
-                options.body = JSON.stringify({ action, payload });
-            }
-
-            try {
-                const response = await fetch(url, options);
-                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                const result = await response.json();
-                if (result.status === 'error') throw new Error(result.message);
-                return result;
-            } catch (error) {
-                console.error('API Call Error:', error);
-                
-                // ตรวจสอบว่าเป็น network error หรือไม่
-                if (error.message.includes('Failed to fetch')) {
-                    showAlert('การเชื่อมต่อล้มเหลว', 'ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต');
+                if (method === 'GET') {
+                    const params = new URLSearchParams({ action, ...payload, cacheBust: new Date().getTime() }); 
+                    url += `?${params}`;
                 } else {
-                    showAlert('เกิดข้อผิดพลาด', `Server error: ${error.message}`);
+                    options.body = JSON.stringify({ action, payload });
                 }
-                throw error;
+
+                try {
+                    const response = await fetch(url, options);
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    const result = await response.json();
+                    if (result.status === 'error') throw new Error(result.message);
+                    return result;
+                } catch (error) {
+                    console.error(`API Call Error (Attempt ${attempt + 1}/${retries}):`, error);
+                    
+                    if (attempt === retries - 1) {
+                        // ตรวจสอบว่าเป็น network error หรือไม่
+                        if (error.message.includes('Failed to fetch')) {
+                            showAlert('การเชื่อมต่อล้มเหลว', 'ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต');
+                        } else {
+                            showAlert('เกิดข้อผิดพลาด', `Server error: ${error.message}`);
+                        }
+                        throw error;
+                    }
+                    
+                    // รอสักครู่ก่อนลองใหม่
+                    await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+                }
             }
         }
+
         function parseDMYDate(dateString) {
             if (!dateString || typeof dateString !== 'string') return null;
             
-            // แยก "27/10/2025, 7:00" ออกเป็น "27/10/2025"
-            const datePart = dateString.split(',')[0];
-            
-            // แยก "27/10/2025" ออกเป็น ["27", "10", "2025"]
-            const parts = datePart.split('/');
-            
-            if (parts.length === 3) {
-                // new Date(year, monthIndex, day)
-                // สำคัญ: เดือนใน JavaScript เริ่มนับที่ 0 (มกราคม = 0)
-                // ดังนั้น "10" (ตุลาคม) ต้องลบ 1 ให้เป็น 9
-                return new Date(parts[2], parts[1] - 1, parts[0]);
+            try {
+                // แยก "27/10/2025, 7:00" ออกเป็น "27/10/2025"
+                const datePart = dateString.split(',')[0];
+                
+                // แยก "27/10/2025" ออกเป็น ["27", "10", "2025"]
+                const parts = datePart.split('/');
+                
+                if (parts.length === 3) {
+                    const day = parseInt(parts[0], 10);
+                    const month = parseInt(parts[1], 10) - 1;
+                    const year = parseInt(parts[2], 10);
+                    
+                    // Validate date components
+                    if (day > 0 && day < 32 && month >= 0 && month < 12 && year > 2000) {
+                        const date = new Date(year, month, day);
+                        if (!isNaN(date.getTime())) {
+                            return date;
+                        }
+                    }
+                }
+                
+                // หากรูปแบบไม่ตรง ให้ลอง parse แบบปกติ
+                const fallbackDate = new Date(dateString);
+                return isNaN(fallbackDate.getTime()) ? null : fallbackDate;
+            } catch (error) {
+                console.error('Date parsing error:', error);
+                return null;
             }
-            
-            // หากรูปแบบไม่ตรง ให้ลอง parse แบบปกติ
-            return new Date(dateString); 
         }
+
         // --- UTILITY FUNCTIONS ---
         
         function showAlert(title, message) {
@@ -614,6 +636,47 @@
                 reader.readAsDataURL(file);
             });
         }
+
+        // Cache management
+        function getCachedData(key) {
+            try {
+                const cached = sessionStorage.getItem(key);
+                const timestamp = sessionStorage.getItem(`${key}_timestamp`);
+                
+                if (cached && timestamp) {
+                    const age = Date.now() - parseInt(timestamp);
+                    // Cache valid for 30 seconds
+                    if (age < 30000) {
+                        return JSON.parse(cached);
+                    }
+                }
+            } catch (error) {
+                console.error('Error reading cache:', error);
+            }
+            return null;
+        }
+
+        function setCachedData(key, data) {
+            try {
+                sessionStorage.setItem(key, JSON.stringify(data));
+                sessionStorage.setItem(`${key}_timestamp`, Date.now().toString());
+            } catch (error) {
+                console.error('Error setting cache:', error);
+            }
+        }
+
+        function clearCache() {
+            try {
+                const keys = Object.keys(sessionStorage);
+                keys.forEach(key => {
+                    if (key.includes('_cache') || key.includes('_timestamp')) {
+                        sessionStorage.removeItem(key);
+                    }
+                });
+            } catch (error) {
+                console.error('Error clearing cache:', error);
+            }
+        }
         
         // --- PAGE NAVIGATION ---
         
@@ -678,6 +741,7 @@
         
         function showLoginScreen() {
             sessionStorage.removeItem('currentUser');
+            clearCache();
             document.getElementById('main-app').classList.add('hidden');
             document.getElementById('login-screen').classList.remove('hidden');
         }
@@ -776,6 +840,11 @@
                 console.error('Global error:', event.error);
                 showAlert("ข้อผิดพลาดระบบ", "เกิดข้อผิดพลาดที่ไม่คาดคิด กรุณารีเฟรชหน้าเว็บ");
             });
+
+            // Handle page refresh
+            window.addEventListener('beforeunload', () => {
+                clearCache();
+            });
         }
         
         // --- AUTHENTICATION HANDLERS ---
@@ -839,6 +908,18 @@
         async function fetchUserRequests() {
             const user = getCurrentUser();
             if (!user) return;
+            
+            // Check cache first
+            const cacheKey = `user_requests_${user.username}`;
+            const cachedData = getCachedData(cacheKey);
+            
+            if (cachedData) {
+                allRequestsCache = cachedData.requests;
+                userMemosCache = cachedData.memos;
+                renderRequestsList(allRequestsCache, userMemosCache);
+                return;
+            }
+
             const loader = document.getElementById('requests-loader');
             const list = document.getElementById('requests-list');
             loader.classList.remove('hidden');
@@ -850,7 +931,14 @@
                     apiCall('GET', 'getSentMemos', { username: user.username })
                 ]);
                 allRequestsCache = requestsResult.data.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)) || [];
-                userMemosCache = memosResult.data || []; // Populate the global cache
+                userMemosCache = memosResult.data || [];
+                
+                // Cache the results
+                setCachedData(cacheKey, {
+                    requests: allRequestsCache,
+                    memos: userMemosCache
+                });
+                
                 renderRequestsList(allRequestsCache, userMemosCache);
             } catch (error) {
                 console.error("Error fetching user requests:", error);
@@ -1258,8 +1346,15 @@
             const file = e.target.files[0];
             if (!file) return;
 
-            toggleLoader('form-import-excel', true); // <-- [MODIFIED] Show loader
-            
+            // Validate file type
+            if (!file.name.match(/\.(xlsx|xls)$/i)) {
+                showAlert("ไฟล์ไม่ถูกต้อง", "กรุณาเลือกไฟล์ Excel (.xlsx หรือ .xls)");
+                e.target.value = '';
+                return;
+            }
+
+            toggleLoader('form-import-excel', true);
+
             const reader = new FileReader();
             reader.onload = (event) => {
                 try {
@@ -1268,6 +1363,11 @@
                     const sheetName = workbook.SheetNames[0];
                     const worksheet = workbook.Sheets[sheetName];
                     const json = XLSX.utils.sheet_to_json(worksheet);
+
+                    if (json.length === 0) {
+                        showAlert("ข้อมูลว่างเปล่า", "ไฟล์ Excel ไม่มีข้อมูล");
+                        return;
+                    }
 
                     json.forEach(row => {
                         const name = row['ชื่อ-นามสกุล'] || row['FullName'];
@@ -1278,10 +1378,10 @@
                 } catch (error) {
                     showAlert("ผิดพลาด", "ไม่สามารถอ่านไฟล์ Excel ได้ กรุณาตรวจสอบรูปแบบไฟล์");
                 } finally {
-                    toggleLoader('form-import-excel', false); // <-- [MODIFIED] Hide loader
+                    toggleLoader('form-import-excel', false);
                 }
             };
-            reader.onerror = () => { // <-- [MODIFIED] Added error handler
+            reader.onerror = () => {
                 showAlert("ผิดพลาด", "เกิดข้อผิดพลาดในการอ่านไฟล์");
                 toggleLoader('form-import-excel', false);
             };
@@ -1318,6 +1418,15 @@
                 return;
             }
             
+            // Validate file type if provided
+            if (memoType === 'no_reimburse' && fileInput.files[0]) {
+                const file = fileInput.files[0];
+                if (file.type !== 'application/pdf') {
+                    showAlert("ไฟล์ไม่ถูกต้อง", "กรุณาเลือกไฟล์ PDF เท่านั้น");
+                    return;
+                }
+            }
+            
             // เพิ่ม confirmation
             const confirmMessage = memoType === 'reimburse' 
                 ? "ยืนยันการส่งบันทึกข้อความแบบขอเบิกค่าใช้จ่าย?"
@@ -1326,7 +1435,7 @@
             const confirmed = await showConfirm("ยืนยันการส่ง", confirmMessage);
             if (!confirmed) return;
             
-            toggleLoader('send-memo-submit-button', true); // <-- [MODIFIED] Show loader
+            toggleLoader('send-memo-submit-button', true);
 
             try {
                 const payload = {
@@ -1349,7 +1458,7 @@
             } catch (error) {
                 showAlert('ผิดพลาด', 'ไม่สามารถส่งบันทึกข้อความได้: ' + error.message);
             } finally {
-                toggleLoader('send-memo-submit-button', false); // <-- [MODIFIED] Hide loader
+                toggleLoader('send-memo-submit-button', false);
             }
         }
 
@@ -1436,11 +1545,22 @@
         // --- ADMIN FUNCTIONS ---
 
         async function fetchAllUsers() {
+            // Check cache first
+            const cacheKey = 'all_users';
+            const cachedData = getCachedData(cacheKey);
+            
+            if (cachedData) {
+                allUsersCache = cachedData;
+                renderAdminUsersList(allUsersCache);
+                return;
+            }
+
             document.getElementById('admin-loader').classList.remove('hidden');
             document.getElementById('admin-users-list').classList.add('hidden');
             try {
                 const result = await apiCall('GET', 'getAllUsers');
                 allUsersCache = result.data || [];
+                setCachedData(cacheKey, allUsersCache);
                 renderAdminUsersList(allUsersCache);
             } finally {
                  document.getElementById('admin-loader').classList.add('hidden');
@@ -1561,7 +1681,14 @@
             const file = e.target.files[0];
             if (!file) return;
 
-            toggleLoader('import-users-button', true); // <-- [MODIFIED] Show loader
+            // Validate file type
+            if (!file.name.match(/\.(xlsx|xls)$/i)) {
+                showAlert("ไฟล์ไม่ถูกต้อง", "กรุณาเลือกไฟล์ Excel (.xlsx หรือ .xls)");
+                e.target.value = '';
+                return;
+            }
+
+            toggleLoader('import-users-button', true);
 
             const reader = new FileReader();
             reader.onload = async (event) => {
@@ -1572,16 +1699,21 @@
                     const worksheet = workbook.Sheets[sheetName];
                     const users = XLSX.utils.sheet_to_json(worksheet);
                     
+                    if (users.length === 0) {
+                        showAlert("ข้อมูลว่างเปล่า", "ไฟล์ Excel ไม่มีข้อมูลผู้ใช้");
+                        return;
+                    }
+
                     const result = await apiCall('POST', 'importUsers', { users });
                     showAlert('นำเข้าสำเร็จ', result.message);
                     await fetchAllUsers();
                 } catch(error) {
                     showAlert('เกิดข้อผิดพลาดในการนำเข้า', error.message);
                 } finally {
-                    toggleLoader('import-users-button', false); // <-- [MODIFIED] Hide loader
+                    toggleLoader('import-users-button', false);
                 }
             };
-            reader.onerror = () => { // <-- [MODIFIED] Added error handler
+            reader.onerror = () => {
                 showAlert("ผิดพลาด", "เกิดข้อผิดพลาดในการอ่านไฟล์");
                 toggleLoader('import-users-button', false);
             };
@@ -1590,6 +1722,17 @@
         }
 
         async function fetchAllMemos() {
+            // Check cache first
+            const cacheKey = 'all_memos';
+            const cachedData = getCachedData(cacheKey);
+            
+            if (cachedData) {
+                allMemosCache = cachedData.memos;
+                allRequestsCache = cachedData.requests;
+                renderAdminMemosList(allMemosCache, allRequestsCache);
+                return;
+            }
+
             const loader = document.getElementById('admin-memos-loader');
             loader.classList.remove('hidden');
             document.getElementById('admin-memos-list').classList.add('hidden');
@@ -1597,6 +1740,12 @@
                 const results = await Promise.all([apiCall('GET', 'getAllMemos'), apiCall('GET', 'getAllRequests')]);
                 allMemosCache = results[0].data.sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp)) || [];
                 allRequestsCache = results[1].data || [];
+                
+                setCachedData(cacheKey, {
+                    memos: allMemosCache,
+                    requests: allRequestsCache
+                });
+                
                 renderAdminMemosList(allMemosCache, allRequestsCache);
             } catch (e) {
                 document.getElementById('no-admin-memos-message').classList.remove('hidden');
@@ -1681,12 +1830,23 @@
         }
 
         async function fetchAllRequestsForCommand() {
+            // Check cache first
+            const cacheKey = 'all_requests_command';
+            const cachedData = getCachedData(cacheKey);
+            
+            if (cachedData) {
+                allRequestsCache = cachedData;
+                renderCommandRequestsList(allRequestsCache);
+                return;
+            }
+
             const loader = document.getElementById('command-requests-loader');
             loader.classList.remove('hidden');
             document.getElementById('command-requests-list').classList.add('hidden');
             try {
                 const result = await apiCall('GET', 'getAllRequests');
                 allRequestsCache = result.data.sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp)) || [];
+                setCachedData(cacheKey, allRequestsCache);
                 renderCommandRequestsList(allRequestsCache);
             } catch (e) {
                 document.getElementById('no-command-requests-message').classList.remove('hidden');
@@ -1694,6 +1854,7 @@
                 loader.classList.add('hidden');
             }
         }
+
         function renderCommandRequestsList(requests) {
             const container = document.getElementById('command-requests-list');
             const noDataMsg = document.getElementById('no-command-requests-message');
@@ -1768,6 +1929,7 @@
                 }
             })
         }
+
         async function handleCommandApproval(e) {
             e.preventDefault();
             const payload = {
@@ -1797,7 +1959,7 @@
 
         async function handleAdminMemoActionSubmit(e) {
             e.preventDefault();
-            toggleLoader('admin-memo-action-submit-button', true); // <-- [MODIFIED] Show loader
+            toggleLoader('admin-memo-action-submit-button', true);
 
             const payload = {
                 id: document.getElementById('action-memo-id').value,
@@ -1810,6 +1972,20 @@
             const memoFile = document.getElementById('completed-memo-file').files[0];
             const commandFile = document.getElementById('completed-command-file').files[0];
             const dispatchFile = document.getElementById('dispatch-book-file').files[0];
+            
+            // Validate file types
+            if (memoFile && memoFile.type !== 'application/pdf') {
+                showAlert('ไฟล์ไม่ถูกต้อง', 'ไฟล์บันทึกข้อความต้องเป็น PDF เท่านั้น');
+                return;
+            }
+            if (commandFile && commandFile.type !== 'application/pdf') {
+                showAlert('ไฟล์ไม่ถูกต้อง', 'ไฟล์คำสั่งต้องเป็น PDF เท่านั้น');
+                return;
+            }
+            if (dispatchFile && dispatchFile.type !== 'application/pdf') {
+                showAlert('ไฟล์ไม่ถูกต้อง', 'ไฟล์หนังสือส่งต้องเป็น PDF เท่านั้น');
+                return;
+            }
             
             try {
                 if (memoFile) payload.completedMemoFile = await fileToObject(memoFile);
@@ -1825,7 +2001,7 @@
             } catch (error) {
                 showAlert('ผิดพลาด', 'ไม่สามารถดำเนินการได้: ' + error.message);
             } finally {
-                toggleLoader('admin-memo-action-submit-button', false); // <-- [MODIFIED] Hide loader
+                toggleLoader('admin-memo-action-submit-button', false);
             }
         }
         
@@ -1852,15 +2028,40 @@
         // --- CACHE MANAGEMENT ---
         function clearRequestsCache() {
             allRequestsCache = [];
+            const keys = Object.keys(sessionStorage);
+            keys.forEach(key => {
+                if (key.includes('user_requests') || key.includes('all_requests')) {
+                    sessionStorage.removeItem(key);
+                    sessionStorage.removeItem(`${key}_timestamp`);
+                }
+            });
         }
 
         function clearMemosCache() {
             allMemosCache = [];
             userMemosCache = [];
+            const keys = Object.keys(sessionStorage);
+            keys.forEach(key => {
+                if (key.includes('memos') || key.includes('all_memos')) {
+                    sessionStorage.removeItem(key);
+                    sessionStorage.removeItem(`${key}_timestamp`);
+                }
+            });
         }
 
         // --- STATISTICS FUNCTIONS ---
         async function loadStatsData() {
+            // Check cache first
+            const cacheKey = 'stats_data';
+            const cachedData = getCachedData(cacheKey);
+            
+            if (cachedData) {
+                allRequestsCache = cachedData.requests;
+                allUsersCache = cachedData.users;
+                renderStatsData(allRequestsCache, allUsersCache);
+                return;
+            }
+
             const loader = document.getElementById('stats-loader');
             const content = document.getElementById('stats-content');
             loader.classList.remove('hidden');
@@ -1877,49 +2078,57 @@
                 allRequestsCache = requests; 
                 allUsersCache = users; 
                 
-                const userDepartmentMap = users.reduce((map, user) => {
-                    map[user.username] = user.department || 'ไม่ระบุกลุ่มสาระฯ';
-                    return map;
-                }, {});
-
-                // 1. Stats by User
-                const byUser = requests.reduce((acc, req) => {
-                    const user = req.requesterName || 'N/A';
-                    acc[user] = (acc[user] || 0) + 1;
-                    return acc;
-                }, {});
-                renderStatsCard('stats-by-user', 'สรุปตามผู้ขอไปราชการ', byUser, 'user');
-
-                // 2. Stats by Department
-                const byDept = requests.reduce((acc, req) => {
-                    const dept = userDepartmentMap[req.username] || 'ไม่ระบุกลุ่มสาระฯ';
-                    acc[dept] = (acc[dept] || 0) + 1;
-                    return acc;
-                }, {});
-                renderStatsCard('stats-by-department', 'สรุปตามกลุ่มสาระฯ', byDept, 'department');
-
-                // 3. Stats by Year
-                const byYear = requests.reduce((acc, req) => {
-    const date = parseDMYDate(req.docDate); // <--- ใช้ฟังก์ชันใหม่
-    const year = date && !isNaN(date.getFullYear()) ? date.getFullYear() + 543 : 'ไม่ระบุปี';
-    acc[year] = (acc[year] || 0) + 1;
-    return acc;
-}, {});
+                setCachedData(cacheKey, {
+                    requests: allRequestsCache,
+                    users: allUsersCache
+                });
                 
-                // 4. Stats by Expense
-                const byExpense = requests.reduce((acc, req) => {
-                    const type = req.expenseOption === 'no' ? 'ไม่เบิก' : 'เบิก';
-                    acc[type] = (acc[type] || 0) + 1;
-                    return acc;
-                }, {});
-                 renderStatsCard('stats-by-expense', 'สรุปการเบิกค่าใช้จ่าย', byExpense, 'expense');
-
+                renderStatsData(requests, users);
             } catch(error) {
                 console.error("Error loading stats data", error);
             } finally {
                 loader.classList.add('hidden');
                 content.classList.remove('hidden');
             }
+        }
+
+        function renderStatsData(requests, users) {
+            const userDepartmentMap = users.reduce((map, user) => {
+                map[user.username] = user.department || 'ไม่ระบุกลุ่มสาระฯ';
+                return map;
+            }, {});
+
+            // 1. Stats by User
+            const byUser = requests.reduce((acc, req) => {
+                const user = req.requesterName || 'N/A';
+                acc[user] = (acc[user] || 0) + 1;
+                return acc;
+            }, {});
+            renderStatsCard('stats-by-user', 'สรุปตามผู้ขอไปราชการ', byUser, 'user');
+
+            // 2. Stats by Department
+            const byDept = requests.reduce((acc, req) => {
+                const dept = userDepartmentMap[req.username] || 'ไม่ระบุกลุ่มสาระฯ';
+                acc[dept] = (acc[dept] || 0) + 1;
+                return acc;
+            }, {});
+            renderStatsCard('stats-by-department', 'สรุปตามกลุ่มสาระฯ', byDept, 'department');
+
+            // 3. Stats by Year
+            const byYear = requests.reduce((acc, req) => {
+                const date = parseDMYDate(req.docDate);
+                const year = date && !isNaN(date.getFullYear()) ? date.getFullYear() + 543 : 'ไม่ระบุปี';
+                acc[year] = (acc[year] || 0) + 1;
+                return acc;
+            }, {});
+            
+            // 4. Stats by Expense
+            const byExpense = requests.reduce((acc, req) => {
+                const type = req.expenseOption === 'no' ? 'ไม่เบิก' : 'เบิก';
+                acc[type] = (acc[type] || 0) + 1;
+                return acc;
+            }, {});
+            renderStatsCard('stats-by-expense', 'สรุปการเบิกค่าใช้จ่าย', byExpense, 'expense');
         }
         
         function renderStatsCard(elementId, title, data, type) {
@@ -1959,18 +2168,17 @@
                 }, {});
                  filteredRequests = allRequestsCache.filter(r => (userDepartmentMap[r.username] || 'ไม่ระบุกลุ่มสาระฯ') === key);
             } else if (type === 'year') {
-    if (key === 'ไม่ระบุปี' || key === 'NaN') {
-        filteredRequests = allRequestsCache.filter(r => {
-            const date = parseDMYDate(r.docDate); // <--- ใช้ฟังก์ชันใหม่
-            return !date || isNaN(date.getFullYear());
-        });
-    } else {
-        filteredRequests = allRequestsCache.filter(r => {
-            const date = parseDMYDate(r.docDate); // <--- ใช้ฟังก์ชันใหม่
-            return date && (date.getFullYear() + 543) == key;
-        });
-    }
-}
+                if (key === 'ไม่ระบุปี' || key === 'NaN') {
+                    filteredRequests = allRequestsCache.filter(r => {
+                        const date = parseDMYDate(r.docDate);
+                        return !date || isNaN(date.getFullYear());
+                    });
+                } else {
+                    filteredRequests = allRequestsCache.filter(r => {
+                        const date = parseDMYDate(r.docDate);
+                        return date && (date.getFullYear() + 543) == key;
+                    });
+                }
             } else if (type === 'expense') {
                 const expenseType = key === 'ไม่เบิก' ? 'no' : 'partial';
                 filteredRequests = allRequestsCache.filter(r => r.expenseOption === expenseType);
