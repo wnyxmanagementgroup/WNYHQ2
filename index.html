@@ -528,7 +528,25 @@
                 throw error;
             }
         }
-        
+        function parseDMYDate(dateString) {
+            if (!dateString || typeof dateString !== 'string') return null;
+            
+            // แยก "27/10/2025, 7:00" ออกเป็น "27/10/2025"
+            const datePart = dateString.split(',')[0];
+            
+            // แยก "27/10/2025" ออกเป็น ["27", "10", "2025"]
+            const parts = datePart.split('/');
+            
+            if (parts.length === 3) {
+                // new Date(year, monthIndex, day)
+                // สำคัญ: เดือนใน JavaScript เริ่มนับที่ 0 (มกราคม = 0)
+                // ดังนั้น "10" (ตุลาคม) ต้องลบ 1 ให้เป็น 9
+                return new Date(parts[2], parts[1] - 1, parts[0]);
+            }
+            
+            // หากรูปแบบไม่ตรง ให้ลอง parse แบบปกติ
+            return new Date(dateString); 
+        }
         // --- UTILITY FUNCTIONS ---
         
         function showAlert(title, message) {
@@ -1882,11 +1900,11 @@
 
                 // 3. Stats by Year
                 const byYear = requests.reduce((acc, req) => {
-                    const year = new Date(req.docDate).getFullYear() + 543;
-                    acc[year] = (acc[year] || 0) + 1;
-                    return acc;
-                }, {});
-                renderStatsCard('stats-by-year', 'สรุปตามปี (พ.ศ.)', byYear, 'year');
+    const date = parseDMYDate(req.docDate); // <--- ใช้ฟังก์ชันใหม่
+    const year = date && !isNaN(date.getFullYear()) ? date.getFullYear() + 543 : 'ไม่ระบุปี';
+    acc[year] = (acc[year] || 0) + 1;
+    return acc;
+}, {});
                 
                 // 4. Stats by Expense
                 const byExpense = requests.reduce((acc, req) => {
@@ -1941,7 +1959,18 @@
                 }, {});
                  filteredRequests = allRequestsCache.filter(r => (userDepartmentMap[r.username] || 'ไม่ระบุกลุ่มสาระฯ') === key);
             } else if (type === 'year') {
-                filteredRequests = allRequestsCache.filter(r => (new Date(r.docDate).getFullYear() + 543) == key);
+    if (key === 'ไม่ระบุปี' || key === 'NaN') {
+        filteredRequests = allRequestsCache.filter(r => {
+            const date = parseDMYDate(r.docDate); // <--- ใช้ฟังก์ชันใหม่
+            return !date || isNaN(date.getFullYear());
+        });
+    } else {
+        filteredRequests = allRequestsCache.filter(r => {
+            const date = parseDMYDate(r.docDate); // <--- ใช้ฟังก์ชันใหม่
+            return date && (date.getFullYear() + 543) == key;
+        });
+    }
+}
             } else if (type === 'expense') {
                 const expenseType = key === 'ไม่เบิก' ? 'no' : 'partial';
                 filteredRequests = allRequestsCache.filter(r => r.expenseOption === expenseType);
