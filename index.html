@@ -536,33 +536,16 @@
             }
         }
 
+        /**
+         * [REVISED] แก้ไข Bug การ Parse วันที่ในหน้าสถิติ
+         * ฟังก์ชันนี้ถูกปรับให้รองรับ ISO date string ที่ส่งมาจาก Backend โดยตรง
+         */
         function parseDMYDate(dateString) {
-            if (!dateString || typeof dateString !== 'string') return null;
-            
+            if (!dateString) return null;
             try {
-                // แยก "27/10/2025, 7:00" ออกเป็น "27/10/2025"
-                const datePart = dateString.split(',')[0];
-                
-                // แยก "27/10/2025" ออกเป็น ["27", "10", "2025"]
-                const parts = datePart.split('/');
-                
-                if (parts.length === 3) {
-                    const day = parseInt(parts[0], 10);
-                    const month = parseInt(parts[1], 10) - 1;
-                    const year = parseInt(parts[2], 10);
-                    
-                    // Validate date components
-                    if (day > 0 && day < 32 && month >= 0 && month < 12 && year > 2000) {
-                        const date = new Date(year, month, day);
-                        if (!isNaN(date.getTime())) {
-                            return date;
-                        }
-                    }
-                }
-                
-                // หากรูปแบบไม่ตรง ให้ลอง parse แบบปกติ
-                const fallbackDate = new Date(dateString);
-                return isNaN(fallbackDate.getTime()) ? null : fallbackDate;
+                // new Date() สามารถจัดการกับ ISO strings (ที่ GAS ส่งมา) ได้โดยตรง
+                const date = new Date(dateString);
+                return isNaN(date.getTime()) ? null : date;
             } catch (error) {
                 console.error('Date parsing error:', error);
                 return null;
@@ -645,8 +628,8 @@
                 
                 if (cached && timestamp) {
                     const age = Date.now() - parseInt(timestamp);
-                    // Cache valid for 30 seconds
-                    if (age < 30000) {
+                    // [REVISED] เพิ่มอายุ Cache เป็น 5 นาที (300,000 ms)
+                    if (age < 300000) { 
                         return JSON.parse(cached);
                     }
                 }
@@ -1656,8 +1639,14 @@
                 role: document.getElementById('modal-role').value,
             };
             try {
+                // [REVISED] แก้ไข Bug โดยการตรวจสอบเงื่อนไข
+                // ถ้าเป็น "update" และ password "ว่าง" ให้ลบ key 'password' ออกจาก payload
+                // เพื่อให้ Backend (ที่แก้ไขแล้ว) ไม่พยายามอัปเดต password เป็นค่าว่าง
                 const action = isUpdate ? 'updateUserProfile' : 'addUser'; 
-                if(isUpdate && !payload.password) delete payload.password; // Don't update password if blank
+                if(isUpdate && (!payload.password || payload.password.trim() === '')) {
+                    delete payload.password; // Don't update password if blank
+                }
+                
                 await apiCall('POST', action, payload);
                 showAlert('สำเร็จ', `ผู้ใช้ถูก${isUpdate ? 'อัปเดต' : 'เพิ่ม'}เรียบร้อยแล้ว`);
                 document.getElementById('admin-modal').style.display = 'none';
@@ -1947,15 +1936,7 @@
             }
         }
 
-        async function updateRequestStatusCommand(requestId, newStatus) {
-             try {
-                await apiCall('POST', 'updateRequestStatusCommand', { requestId, status: newStatus });
-                showAlert('สำเร็จ', 'อัปเดตสถานะเรียบร้อยแล้ว');
-                await fetchAllRequestsForCommand();
-            } catch (error) {
-                showAlert('ผิดพลาด', 'ไม่สามารถอัปเดตสถานะได้: ' + error.message);
-            }
-        }
+        /* [REVISED] ลบฟังก์ชัน updateRequestStatusCommand ที่ไม่ได้ใช้งาน */
 
         async function handleAdminMemoActionSubmit(e) {
             e.preventDefault();
@@ -2116,7 +2097,7 @@
 
             // 3. Stats by Year
             const byYear = requests.reduce((acc, req) => {
-                const date = parseDMYDate(req.docDate);
+                const date = parseDMYDate(req.docDate); // [REVISED] ใช้ฟังก์ชันที่แก้ไขแล้ว
                 const year = date && !isNaN(date.getFullYear()) ? date.getFullYear() + 543 : 'ไม่ระบุปี';
                 acc[year] = (acc[year] || 0) + 1;
                 return acc;
@@ -2175,7 +2156,7 @@
                     });
                 } else {
                     filteredRequests = allRequestsCache.filter(r => {
-                        const date = parseDMYDate(r.docDate);
+                        const date = parseDMYDate(r.docDate); // [REVISED] ใช้ฟังก์ชันที่แก้ไขแล้ว
                         return date && (date.getFullYear() + 543) == key;
                     });
                 }
