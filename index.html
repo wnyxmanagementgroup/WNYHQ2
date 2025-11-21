@@ -1229,6 +1229,43 @@ div#main-app > header {
             </div>
         </form>
     </div>
+            <div id="public-attendee-modal" class="modal">
+    <div class="modal-content">
+        <div class="flex justify-between items-center mb-4 border-b pb-2">
+            <h3 class="text-xl font-bold text-indigo-700">รายละเอียดการเดินทาง</h3>
+            <button id="public-attendee-modal-close-button" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+        </div>
+        
+        <div class="space-y-4">
+            <div class="bg-blue-50 p-4 rounded-lg border border-blue-100">
+                <p><strong>เรื่อง/วัตถุประสงค์:</strong> <span id="public-modal-purpose" class="text-gray-700"></span></p>
+                <p class="mt-1"><strong>สถานที่:</strong> <span id="public-modal-location" class="text-gray-700"></span></p>
+                <p class="mt-1"><strong>วันที่:</strong> <span id="public-modal-date" class="text-blue-600 font-bold"></span></p>
+            </div>
+
+            <div>
+                <h4 class="font-bold text-gray-800 mb-2 border-l-4 border-green-500 pl-2">รายชื่อผู้เดินทาง</h4>
+                <div class="overflow-y-auto max-h-60 border rounded-lg">
+                    <table class="w-full text-sm text-left">
+                        <thead class="text-xs text-gray-700 uppercase bg-gray-100">
+                            <tr>
+                                <th class="px-4 py-2">ลำดับ</th>
+                                <th class="px-4 py-2">ชื่อ-นามสกุล</th>
+                                <th class="px-4 py-2">ตำแหน่ง</th>
+                            </tr>
+                        </thead>
+                        <tbody id="public-modal-attendee-list" class="bg-white">
+                            </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex justify-end mt-6">
+            <button type="button" id="public-attendee-modal-close-btn2" class="btn bg-gray-500 text-white">ปิดหน้าต่าง</button>
+        </div>
+    </div>
+</div>
 </div>
 
     <script>
@@ -1688,7 +1725,13 @@ div#main-app > header {
                 document.getElementById('forgot-password-modal').style.display = 'none';
             });
             document.getElementById('forgot-password-form').addEventListener('submit', handleForgotPassword);
-            
+            // Modal รายชื่อผู้ร่วมเดินทาง (Public)
+            document.getElementById('public-attendee-modal-close-button').addEventListener('click', () => {
+                document.getElementById('public-attendee-modal').style.display = 'none';
+            });
+            document.getElementById('public-attendee-modal-close-btn2').addEventListener('click', () => {
+                document.getElementById('public-attendee-modal').style.display = 'none';
+            });
             // Navigation
             document.getElementById('back-to-admin-command').addEventListener('click', async () => {
                 await switchPage('command-generation-page');
@@ -4069,12 +4112,15 @@ div#main-app > header {
             }
         }
 
+        // ตัวแปร Global สำหรับเก็บข้อมูลสัปดาห์ปัจจุบัน เพื่อใช้เปิด Modal
+        let currentPublicWeeklyData = [];
+
         function renderPublicTable(requests) {
             const tbody = document.getElementById('public-weekly-list');
             const now = new Date();
             
-            // หาวันเริ่มต้นและสิ้นสุดของสัปดาห์นี้
-            const currentDay = now.getDay(); // 0 = Sunday, 1 = Monday
+            // หาวันจันทร์และอาทิตย์ของสัปดาห์นี้
+            const currentDay = now.getDay(); 
             const diffToMonday = now.getDate() - currentDay + (currentDay === 0 ? -6 : 1);
             const monday = new Date(now.setDate(diffToMonday));
             monday.setHours(0,0,0,0);
@@ -4086,33 +4132,36 @@ div#main-app > header {
             // กรองข้อมูล
             const weeklyRequests = requests.filter(req => {
                 if (!req.startDate || !req.endDate) return false;
-                
                 const start = new Date(req.startDate);
                 const end = new Date(req.endDate);
-                
-                // เงื่อนไข:
-                // 1. ช่วงเวลาที่ขอ ทับซ้อนกับสัปดาห์นี้
-                // (Start <= SundayOfWeek AND End >= MondayOfWeek)
+                // เงื่อนไข: วันที่ขอทับซ้อนกับสัปดาห์นี้
                 return (start <= sunday && end >= monday);
-            }).sort((a, b) => new Date(a.startDate) - new Date(b.startDate)); // เรียงตามวันที่เริ่ม
+            }).sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
+
+            // **เก็บข้อมูลลงตัวแปร Global เพื่อใช้ตอนกดดูรายละเอียด**
+            currentPublicWeeklyData = weeklyRequests;
 
             if (weeklyRequests.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="4" class="text-center py-6 text-gray-500">ไม่มีรายการไปราชการในสัปดาห์นี้</td></tr>`;
                 return;
             }
 
-            tbody.innerHTML = weeklyRequests.map(req => {
-                // จัดการรายชื่อผู้ร่วมเดินทาง
+            tbody.innerHTML = weeklyRequests.map((req, index) => {
+                // จัดการข้อความผู้ร่วมเดินทาง
                 let attendeesText = "-";
+                let countBadge = "";
+                
+                const attendeeCount = (req.attendees ? req.attendees.length : 0) + 1; // +1 คือผู้ขอ
+
                 if (req.attendees && req.attendees.length > 0) {
-                    const count = req.attendees.length;
-                    // แสดงชื่อคนแรก และบอกจำนวนที่เหลือ
                     attendeesText = `${req.attendees[0].name}`;
-                    if (count > 1) {
-                        attendeesText += ` และอีก ${count - 1} คน`;
+                    if (req.attendees.length > 1) {
+                        attendeesText += ` ..และอีก ${req.attendees.length - 1} คน`;
                     }
-                } else if (req.attendeeCount > 0) {
-                     attendeesText = `มีผู้ร่วม ${req.attendeeCount} คน`;
+                    // Badge บอกจำนวนคนรวม
+                    countBadge = `<span class="ml-2 bg-indigo-100 text-indigo-800 text-xs font-semibold px-2 py-0.5 rounded-full">รวม ${attendeeCount} คน</span>`;
+                } else {
+                    attendeesText = "เดินทางคนเดียว";
                 }
 
                 // จัดรูปแบบวันที่
@@ -4123,14 +4172,15 @@ div#main-app > header {
                     dateText += ` - ${formatDisplayDate(req.endDate)}`;
                 }
 
-                // ตรวจสอบสถานะเพื่อกำหนดสีขอบ
+                // สถานะสี
                 const statusClass = (req.status === 'เสร็จสิ้น' || req.status === 'Approved') 
                     ? 'border-l-4 border-green-500' 
                     : 'border-l-4 border-yellow-500';
 
+                // **เพิ่ม onclick="openPublicAttendeeModal(${index})" และ cursor-pointer**
                 return `
-                    <tr class="border-b hover:bg-blue-50 transition ${statusClass}">
-                        <td class="px-4 py-3 whitespace-nowrap font-medium text-indigo-600">
+                    <tr onclick="openPublicAttendeeModal(${index})" class="border-b hover:bg-blue-50 transition cursor-pointer group ${statusClass}" title="คลิกเพื่อดูรายชื่อ">
+                        <td class="px-4 py-3 whitespace-nowrap font-medium text-indigo-600 group-hover:text-indigo-800">
                             ${dateText}
                         </td>
                         <td class="px-4 py-3">
@@ -4138,15 +4188,72 @@ div#main-app > header {
                             <div class="text-xs text-gray-500">${req.requesterPosition || ''}</div>
                         </td>
                         <td class="px-4 py-3">
-                            <div class="font-medium text-gray-900">${req.purpose}</div>
+                            <div class="font-medium text-gray-900 truncate max-w-xs">${req.purpose}</div>
                             <div class="text-xs text-gray-500">ณ ${req.location}</div>
                         </td>
                         <td class="px-4 py-3 text-sm text-gray-600">
-                            ${attendeesText}
+                            <div class="flex items-center">
+                                <span>${attendeesText}</span>
+                                ${countBadge}
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 ml-auto text-gray-400 group-hover:text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                </svg>
+                            </div>
                         </td>
                     </tr>
                 `;
             }).join('');
+        }
+
+        // ฟังก์ชันใหม่: เปิด Modal รายชื่อผู้เดินทาง
+        function openPublicAttendeeModal(index) {
+            const req = currentPublicWeeklyData[index];
+            if (!req) return;
+
+            // เติมข้อมูลทั่วไป
+            document.getElementById('public-modal-purpose').textContent = req.purpose;
+            document.getElementById('public-modal-location').textContent = req.location;
+            
+            const startD = new Date(req.startDate);
+            const endD = new Date(req.endDate);
+            let dateText = formatDisplayDate(req.startDate);
+            if (startD.getTime() !== endD.getTime()) {
+                dateText += ` ถึง ${formatDisplayDate(req.endDate)}`;
+            }
+            document.getElementById('public-modal-date').textContent = dateText;
+
+            // เติมรายชื่อในตาราง
+            const listBody = document.getElementById('public-modal-attendee-list');
+            let html = '';
+            let count = 1;
+
+            // 1. ผู้ขอ (เจ้าของเรื่อง)
+            html += `
+                <tr class="bg-blue-50/50">
+                    <td class="px-4 py-2 font-bold text-center">${count++}</td>
+                    <td class="px-4 py-2 font-bold text-blue-800">${req.requesterName} (ผู้ขอ)</td>
+                    <td class="px-4 py-2 text-gray-600">${req.requesterPosition}</td>
+                </tr>
+            `;
+
+            // 2. ผู้ร่วมเดินทาง
+            if (req.attendees && req.attendees.length > 0) {
+                req.attendees.forEach(att => {
+                    html += `
+                        <tr class="border-t">
+                            <td class="px-4 py-2 text-center text-gray-500">${count++}</td>
+                            <td class="px-4 py-2 text-gray-800">${att.name}</td>
+                            <td class="px-4 py-2 text-gray-600">${att.position}</td>
+                        </tr>
+                    `;
+                });
+            }
+
+            listBody.innerHTML = html;
+
+            // เปิด Modal
+            document.getElementById('public-attendee-modal').style.display = 'flex';
         }
         // --- INITIALIZATION ---
         document.addEventListener('DOMContentLoaded', () => {
