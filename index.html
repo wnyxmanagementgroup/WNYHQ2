@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WNY App ไปราชการ</title>
+    <link rel="icon" href="https://upload.wikimedia.org/wikipedia/commons/1/15/Wny-logo.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.1/chart.min.js"></script>
@@ -4174,9 +4175,10 @@ div#main-app > header {
                 return (start <= sunday && end >= monday);
             }).sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
 
+            // ถ้าไม่มีข้อมูล
             if (weeklyRequests.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="4" class="text-center py-10 text-gray-500">ไม่มีรายการไปราชการในสัปดาห์นี้</td></tr>`;
-                return;
+                return; // <--- จุดนี้คือจุดที่มักเกิด Error ถ้าไม่อยู่ใน function
             }
 
             tbody.innerHTML = weeklyRequests.map((req) => {
@@ -4201,15 +4203,13 @@ div#main-app > header {
                     dateText += ` - ${formatDisplayDate(req.endDate)}`;
                 }
 
-                // 3. [แก้ไขสำคัญ] เลือกไฟล์คำสั่ง
-                // ลำดับความสำคัญ: ไฟล์สมบูรณ์จากแอดมิน (completedCommandUrl) -> เท่านั้น
+                // 3. เลือกไฟล์คำสั่ง
                 const finalCommandUrl = req.completedCommandUrl; 
                 
                 let actionHtml = '';
                 
-                // เช็คว่ามีไฟล์สมบูรณ์หรือไม่
                 if (finalCommandUrl && finalCommandUrl.trim() !== "") {
-                    // กรณีมีไฟล์สมบูรณ์: แสดงปุ่มสีเขียว
+                    // กรณีมีไฟล์สมบูรณ์
                     actionHtml = `
                         <a href="${finalCommandUrl}" target="_blank" class="btn bg-green-600 hover:bg-green-700 text-white btn-sm shadow-md transition-transform hover:scale-105 inline-flex items-center gap-1">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -4219,7 +4219,7 @@ div#main-app > header {
                         </a>
                     `;
                 } else {
-                    // กรณีไม่มีไฟล์สมบูรณ์: แสดงสถานะ
+                    // กรณีไม่มีไฟล์
                     let displayStatus = req.realStatus || req.status;
                     let badgeClass = 'bg-gray-100 text-gray-600';
                     let icon = '';
