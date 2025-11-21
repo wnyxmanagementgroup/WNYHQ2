@@ -619,15 +619,35 @@ div#main-app > header {
                             </div>
                             <div id="edit-total-expense-container" class="mt-4 hidden"><label for="edit-total-expense" class="form-label">รวมเป็นจำนวนเงิน (บาท)</label><input type="number" id="edit-total-expense" class="form-input w-full md:w-1/2" placeholder="0.00" step="0.01"></div>
                         
-                        <fieldset class="border p-4 rounded-lg mb-6">
-    <legend>3. การเดินทาง</legend><div class="space-y-2">
-    <label class="block">
-    <input type="checkbox" name="vehicle_option" value="gov" class="rounded">รถยนต์ราชการ (รถโรงเรียน)</label>
-    <label class="block">
-    <input type="checkbox" name="vehicle_option" value="private" class="rounded">รถยนต์ส่วนตัว</label>
-    <div id="edit-private-vehicle-details" class="pl-6 mt-2 hidden"> <label for="edit-license-plate" class="form-label">หมายเลขทะเบียน</label> <input type="text" id="edit-license-plate" class="form-input w-full md:w-1/2"></div> <label class="block"><input type="checkbox" name="vehicle_option" value="public" class="rounded">พาหนะอื่นๆ</label>
-    <div id="edit-public-vehicle-details" class="pl-6 mt-2 hidden"> <label for="edit-public-vehicle-details" class="form-label">ระบุพาหนะอื่นๆ</label> <input type="text" id="edit-public-vehicle-details" class="form-input w-full md:w-1/2"></div> </div>
-</fieldset>
+                       <fieldset class="border p-4 rounded-lg mb-6">
+                            <legend>3. การเดินทาง</legend>
+                            <div class="space-y-2">
+                                <label class="block">
+                                    <input type="checkbox" id="edit-vehicle_gov" name="edit-vehicle_option" value="gov" class="rounded">
+                                    รถยนต์ราชการ (รถโรงเรียน)
+                                </label>
+                                
+                                <label class="block">
+                                    <input type="checkbox" id="edit-vehicle_private" name="edit-vehicle_option" value="private" class="rounded">
+                                    รถยนต์ส่วนตัว
+                                </label>
+                                
+                                <div id="edit-private-vehicle-details" class="pl-6 mt-2 hidden">
+                                    <label for="edit-license-plate" class="form-label">หมายเลขทะเบียน</label>
+                                    <input type="text" id="edit-license-plate" class="form-input w-full md:w-1/2">
+                                </div>
+                                
+                                <label class="block">
+                                    <input type="checkbox" id="edit-vehicle_public" name="edit-vehicle_option" value="public" class="rounded">
+                                    พาหนะอื่นๆ
+                                </label>
+                                
+                                <div id="edit-public-vehicle-details" class="pl-6 mt-2 hidden">
+                                    <label for="edit-public-vehicle-details" class="form-label">ระบุพาหนะอื่นๆ</label>
+                                    <input type="text" id="edit-public-vehicle-details" class="form-input w-full md:w-1/2">
+                                </div>
+                            </div>
+                        </fieldset>
                         <fieldset class="border p-4 rounded-lg mb-6">
                             <legend>5. ข้อมูลผู้ลงนาม</legend>
                             <div class="mb-4">
