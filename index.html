@@ -266,38 +266,7 @@ div#main-app > header {
 <body class="p-4 sm:p-8 min-h-screen bg-gradient-to-br from-pink-100 to-blue-200 antialiased">
     <div id="app" class="max-w-6xl mx-auto">
         <!-- กล่องล็อกอินด้านบนสุด -->
-        <div id="login-screen" class="max-w-6xl mx-auto mt-10 pb-20">
-            
-            <div class="max-w-md mx-auto mb-12">
-                <div class="p-8 rounded-2xl shadow-2xl main-container transform hover:scale-105 transition duration-300">
-                    <div class="text-center mb-6">
-                        <img src="https://img2.pic.in.th/pic/WNY-App-.png" alt="Logo" class="mx-auto h-28 mb-4 drop-shadow-md">
-                    </div>
-                    <form id="login-form">
-                        <div class="mb-4">
-                            <label for="username" class="form-label text-gray-700">ชื่อผู้ใช้ (Username)</label>
-                            <input type="text" id="username" class="form-input" placeholder="ระบุชื่อผู้ใช้" required>
-                        </div>
-                        <div class="mb-6">
-                            <label for="password" class="form-label text-gray-700">รหัสผ่าน (Password)</label>
-                            <input type="password" id="password" class="form-input" placeholder="ระบุรหัสผ่าน" required>
-                        </div>
-                        <button type="submit" id="login-button" class="btn btn-primary w-full text-lg shadow-lg">
-                            <div id="login-loader" class="loader hidden"></div>
-                            <span id="login-button-text">เข้าสู่ระบบ</span>
-                        </button>
-                        <p id="login-error" class="text-red-500 text-center mt-4 hidden bg-red-50 p-2 rounded"></p>
-                    </form>
-                    <p class="text-center mt-4 text-sm text-gray-600 hidden">
-                        ยังไม่มีบัญชี? <button type="button" id="show-register-modal-button" class="font-semibold text-indigo-600 hover:text-indigo-500">สมัครใช้งานที่นี่</button>
-                    </p>
-                    <p class="text-center mt-4">
-                        <button type="button" id="show-forgot-password-modal" class="font-semibold text-indigo-600 hover:text-indigo-500 text-sm">ลืมรหัสผ่าน?</button>
-                    </p>
-                </div>
-            </div>
-
-            <div class="w-full mb-10">
+        <div class="w-full mb-10">
                 <div class="p-6 rounded-2xl shadow-xl main-container bg-white/80 backdrop-blur-sm border border-white/50">
                     <div class="flex flex-wrap justify-between items-end mb-4 border-b pb-4 border-gray-200 gap-4">
                         <div>
@@ -309,7 +278,10 @@ div#main-app > header {
                                 </span>
                                 รายการไปราชการประจำสัปดาห์
                             </h2>
-            
+                            <p class="text-sm text-gray-500 mt-2 ml-1">
+                                <span class="text-green-600 font-bold">ℹ️ หมายเหตุ:</span> 
+                                หากคำสั่งอนุมัติเรียบร้อยแล้ว จะมีปุ่ม <span class="bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded border border-green-200">📄 ดูคำสั่ง</span> ปรากฏขึ้น
+                            </p>
                         </div>
                         <span class="text-sm font-medium text-indigo-600 bg-indigo-50 px-4 py-2 rounded-full shadow-inner border border-indigo-100" id="current-week-display">
                             Loading...
@@ -323,6 +295,7 @@ div#main-app > header {
                                     <th scope="col" class="px-6 py-4 font-bold">วัน-เวลา</th>
                                     <th scope="col" class="px-6 py-4 font-bold">ชื่อผู้ขอ</th>
                                     <th scope="col" class="px-6 py-4 font-bold">เรื่อง / สถานที่</th>
+                                    <th scope="col" class="px-6 py-4 font-bold text-center">ไฟล์คำสั่ง</th>
                                 </tr>
                             </thead>
                             <tbody id="public-weekly-list" class="bg-white divide-y divide-gray-100">
@@ -336,7 +309,7 @@ div#main-app > header {
                         </table>
                     </div>
                 </div>
-        
+            </div>
             <!-- กล่องข้อมูลประชาสัมพันธ์ 2 กล่องด้านล่าง -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <!-- กล่องที่ 1: การขออนุญาตไปราชการ (เบิกค่าใช้จ่าย) -->
