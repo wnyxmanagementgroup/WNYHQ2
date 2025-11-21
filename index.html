@@ -4114,8 +4114,7 @@ div#main-app > header {
 
         // ตัวแปร Global สำหรับเก็บข้อมูลสัปดาห์ปัจจุบัน เพื่อใช้เปิด Modal
         let currentPublicWeeklyData = [];
-
-        function renderPublicTable(requests) {
+function renderPublicTable(requests) {
             const tbody = document.getElementById('public-weekly-list');
             const now = new Date();
             
@@ -4147,16 +4146,36 @@ div#main-app > header {
             }
 
             tbody.innerHTML = weeklyRequests.map((req, index) => {
+                // --- ส่วนแก้ไข: แปลงข้อมูล attendees ให้เป็น Array ที่ถูกต้อง ---
+                let attendeesList = [];
+                
+                // 1. ลองแปลงจาก JSON String ถ้าจำเป็น
+                if (typeof req.attendees === 'string') {
+                    try {
+                        attendeesList = JSON.parse(req.attendees);
+                    } catch (e) {
+                        attendeesList = [];
+                    }
+                } else if (Array.isArray(req.attendees)) {
+                    attendeesList = req.attendees;
+                }
+
+                // 2. อัปเดตค่ากลับเข้าไปใน req เพื่อให้ Modal ใช้งานได้ถูกต้องด้วย
+                req.attendees = attendeesList;
+                // ----------------------------------------------------------
+
                 // จัดการข้อความผู้ร่วมเดินทาง
                 let attendeesText = "-";
                 let countBadge = "";
                 
-                const attendeeCount = (req.attendees ? req.attendees.length : 0) + 1; // +1 คือผู้ขอ
+                const attendeeCount = attendeesList.length + 1; // +1 คือผู้ขอ
 
-                if (req.attendees && req.attendees.length > 0) {
-                    attendeesText = `${req.attendees[0].name}`;
-                    if (req.attendees.length > 1) {
-                        attendeesText += ` ..และอีก ${req.attendees.length - 1} คน`;
+                if (attendeesList.length > 0) {
+                    // แสดงชื่อคนแรก
+                    attendeesText = `${attendeesList[0].name}`;
+                    
+                    if (attendeesList.length > 1) {
+                        attendeesText += ` ..และอีก ${attendeesList.length - 1} คน`;
                     }
                     // Badge บอกจำนวนคนรวม
                     countBadge = `<span class="ml-2 bg-indigo-100 text-indigo-800 text-xs font-semibold px-2 py-0.5 rounded-full">รวม ${attendeeCount} คน</span>`;
@@ -4177,7 +4196,6 @@ div#main-app > header {
                     ? 'border-l-4 border-green-500' 
                     : 'border-l-4 border-yellow-500';
 
-                // **เพิ่ม onclick="openPublicAttendeeModal(${index})" และ cursor-pointer**
                 return `
                     <tr onclick="openPublicAttendeeModal(${index})" class="border-b hover:bg-blue-50 transition cursor-pointer group ${statusClass}" title="คลิกเพื่อดูรายชื่อ">
                         <td class="px-4 py-3 whitespace-nowrap font-medium text-indigo-600 group-hover:text-indigo-800">
@@ -4205,7 +4223,7 @@ div#main-app > header {
                 `;
             }).join('');
         }
-
+       
         // ฟังก์ชันใหม่: เปิด Modal รายชื่อผู้เดินทาง
         function openPublicAttendeeModal(index) {
             const req = currentPublicWeeklyData[index];
