@@ -4157,7 +4157,7 @@ div#main-app > header {
         // ตัวแปร Global สำหรับเก็บข้อมูลสัปดาห์ปัจจุบัน เพื่อใช้เปิด Modal
         let currentPublicWeeklyData = [];
 
-        function renderPublicTable(requests) {
+       function renderPublicTable(requests) {
             const tbody = document.getElementById('public-weekly-list');
             const now = new Date();
             
@@ -4182,7 +4182,7 @@ div#main-app > header {
             // ถ้าไม่มีข้อมูล
             if (weeklyRequests.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="4" class="text-center py-10 text-gray-500">ไม่มีรายการไปราชการในสัปดาห์นี้</td></tr>`;
-                return; // <--- จุดนี้คือจุดที่มักเกิด Error ถ้าไม่อยู่ใน function
+                return;
             }
 
             tbody.innerHTML = weeklyRequests.map((req) => {
@@ -4207,7 +4207,7 @@ div#main-app > header {
                     dateText += ` - ${formatDisplayDate(req.endDate)}`;
                 }
 
-                // 3. เลือกไฟล์คำสั่ง
+                // 3. เลือกไฟล์คำสั่ง (ใช้ไฟล์สมบูรณ์จากแอดมินเท่านั้น)
                 const finalCommandUrl = req.completedCommandUrl; 
                 
                 let actionHtml = '';
@@ -4271,68 +4271,6 @@ div#main-app > header {
                 `;
             }).join('');
         }
-
-                // 3. ตรวจสอบว่ามีไฟล์คำสั่งหรือไม่ (Logic การแสดงปุ่ม)
-                // ตรวจสอบหลาย field เผื่อมีการเก็บข้อมูลแยกประเภท
-                const commandUrl = req.commandPdfUrl || req.commandPdfUrlSolo || req.commandPdfUrlGroupSmall || req.commandPdfUrlGroupLarge;
-                
-                let actionHtml = '';
-                
-                if (commandUrl && commandUrl.trim() !== "") {
-                    // กรณีมีไฟล์: แสดงปุ่มสีเขียว
-                    actionHtml = `
-                        <a href="${commandUrl}" target="_blank" class="btn bg-green-600 hover:bg-green-700 text-white btn-sm shadow-md transition-transform hover:scale-105 inline-flex items-center gap-1">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
-                            ดูคำสั่ง
-                        </a>
-                    `;
-                } else {
-                    // กรณีไม่มีไฟล์: แสดงสถานะข้อความ (Badge)
-                    let badgeClass = 'bg-gray-100 text-gray-600';
-                    let icon = '';
-                    
-                    if (req.status === 'Pending' || req.status === 'กำลังดำเนินการ') {
-                        badgeClass = 'bg-yellow-100 text-yellow-700 border border-yellow-200';
-                        icon = '⏳';
-                    } else if (req.status.includes('แก้ไข')) {
-                        badgeClass = 'bg-red-100 text-red-700 border border-red-200';
-                        icon = '⚠️';
-                    } else {
-                        badgeClass = 'bg-blue-50 text-blue-600 border border-blue-100';
-                        icon = '🔄';
-                    }
-
-                    actionHtml = `
-                        <span class="${badgeClass} px-3 py-1 rounded-full text-xs font-medium">
-                            ${icon} ${translateStatus(req.status)}
-                        </span>
-                    `;
-                }
-
-                return `
-                    <tr class="border-b hover:bg-gray-50 transition">
-                        <td class="px-6 py-4 whitespace-nowrap font-medium text-indigo-600">
-                            ${dateText}
-                        </td>
-                        <td class="px-6 py-4">
-                            <div class="font-bold text-gray-800">${req.requesterName}</div>
-                            <div class="text-xs text-gray-500">${req.requesterPosition || ''}</div>
-                        </td>
-                        <td class="px-6 py-4">
-                            <div class="font-medium text-gray-900 truncate max-w-xs" title="${req.purpose}">${req.purpose}</div>
-                            <div class="text-xs text-gray-500">ณ ${req.location}</div>
-                            ${attendeesText}
-                        </td>
-                        <td class="px-6 py-4 text-center align-middle">
-                            ${actionHtml}
-                        </td>
-                    </tr>
-                `;
-            }).join('');
-        }
-       
         // ฟังก์ชันใหม่: เปิด Modal รายชื่อผู้เดินทาง
         function openPublicAttendeeModal(index) {
             const req = currentPublicWeeklyData[index];
