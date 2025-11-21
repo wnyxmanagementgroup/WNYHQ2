@@ -4101,7 +4101,7 @@ div#main-app > header {
         window.checkEditPageStatus = checkEditPageStatus;
 // --- PUBLIC WEEKLY SCHEDULE FUNCTIONS ---
 
-        async function loadPublicWeeklyData() {
+       async function loadPublicWeeklyData() {
             try {
                 // แสดงวันที่ของสัปดาห์ปัจจุบัน
                 const now = new Date();
@@ -4114,13 +4114,30 @@ div#main-app > header {
                 document.getElementById('current-week-display').textContent = 
                     `${startOfWeek.toLocaleDateString('th-TH', dateOptions)} - ${endOfWeek.toLocaleDateString('th-TH', dateOptions)}`;
 
-                // เรียกข้อมูล (ใช้ getAllRequests แต่กรองที่ Frontend)
-                // หมายเหตุ: Backend ต้องอนุญาตให้ดึงข้อมูลได้โดยไม่ต้อง Login หรือใช้ Token ชั่วคราว
-                // หาก Backend บังคับ Login ฟังก์ชันนี้อาจต้องปรับแก้ที่ฝั่ง Server Script
-                const result = await apiCall('GET', 'getAllRequests'); 
+                // [แก้ไข] เรียกข้อมูล Requests และ Memos พร้อมกัน เพื่อหาไฟล์ที่สมบูรณ์
+                const [requestsResult, memosResult] = await Promise.all([
+                    apiCall('GET', 'getAllRequests'),
+                    apiCall('GET', 'getAllMemos')
+                ]);
                 
-                if (result.status === 'success') {
-                    renderPublicTable(result.data);
+                if (requestsResult.status === 'success') {
+                    const requests = requestsResult.data;
+                    const memos = memosResult.status === 'success' ? memosResult.data : [];
+
+                    // [แก้ไข] ผสานข้อมูล: นำไฟล์ที่สมบูรณ์จาก Memo มาใส่ใน Request
+                    const enrichedRequests = requests.map(req => {
+                        // ค้นหา Memo ที่ตรงกับ Request ID นี้
+                        const relatedMemo = memos.find(m => m.refNumber === req.id);
+                        return {
+                            ...req,
+                            // ดึงลิงก์ไฟล์คำสั่งที่สมบูรณ์มาเก็บไว้ (ถ้ามี)
+                            completedCommandUrl: relatedMemo ? relatedMemo.completedCommandUrl : null,
+                            // ดึงสถานะจาก Memo มาด้วย (เพราะแม่นยำกว่า)
+                            realStatus: relatedMemo ? relatedMemo.status : req.status
+                        };
+                    });
+
+                    renderPublicTable(enrichedRequests);
                 } else {
                     document.getElementById('public-weekly-list').innerHTML = 
                         `<tr><td colspan="4" class="text-center py-4 text-red-500">ไม่สามารถโหลดข้อมูลได้</td></tr>`;
@@ -4134,7 +4151,8 @@ div#main-app > header {
 
         // ตัวแปร Global สำหรับเก็บข้อมูลสัปดาห์ปัจจุบัน เพื่อใช้เปิด Modal
         let currentPublicWeeklyData = [];
-function renderPublicTable(requests) {
+
+        function renderPublicTable(requests) {
             const tbody = document.getElementById('public-weekly-list');
             const now = new Date();
             
@@ -4162,7 +4180,7 @@ function renderPublicTable(requests) {
             }
 
             tbody.innerHTML = weeklyRequests.map((req) => {
-                // 1. จัดการรายชื่อผู้ร่วม (เพื่อแสดงในคอลัมน์เรื่อง/สถานที่แทน)
+                // 1. จัดการรายชื่อผู้ร่วม
                 let attendeesList = [];
                 if (typeof req.attendees === 'string') {
                     try { attendeesList = JSON.parse(req.attendees); } catch (e) { attendeesList = []; }
@@ -4182,6 +4200,73 @@ function renderPublicTable(requests) {
                 if (startD.getTime() !== endD.getTime()) {
                     dateText += ` - ${formatDisplayDate(req.endDate)}`;
                 }
+
+                // 3. [แก้ไขสำคัญ] เลือกไฟล์คำสั่ง
+                // ลำดับความสำคัญ: ไฟล์สมบูรณ์จากแอดมิน (completedCommandUrl) -> เท่านั้น
+                const finalCommandUrl = req.completedCommandUrl; 
+                
+                let actionHtml = '';
+                
+                // เช็คว่ามีไฟล์สมบูรณ์หรือไม่
+                if (finalCommandUrl && finalCommandUrl.trim() !== "") {
+                    // กรณีมีไฟล์สมบูรณ์: แสดงปุ่มสีเขียว
+                    actionHtml = `
+                        <a href="${finalCommandUrl}" target="_blank" class="btn bg-green-600 hover:bg-green-700 text-white btn-sm shadow-md transition-transform hover:scale-105 inline-flex items-center gap-1">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            ดูคำสั่ง (สมบูรณ์)
+                        </a>
+                    `;
+                } else {
+                    // กรณีไม่มีไฟล์สมบูรณ์: แสดงสถานะ
+                    let displayStatus = req.realStatus || req.status;
+                    let badgeClass = 'bg-gray-100 text-gray-600';
+                    let icon = '';
+                    
+                    if (displayStatus === 'Pending' || displayStatus === 'กำลังดำเนินการ') {
+                        badgeClass = 'bg-yellow-100 text-yellow-700 border border-yellow-200';
+                        icon = '⏳';
+                    } else if (displayStatus && displayStatus.includes('แก้ไข')) {
+                        badgeClass = 'bg-red-100 text-red-700 border border-red-200';
+                        icon = '⚠️';
+                    } else if (displayStatus === 'เสร็จสิ้นรอออกคำสั่งไปราชการ') {
+                        badgeClass = 'bg-blue-50 text-blue-600 border border-blue-100';
+                        icon = '📝';
+                        displayStatus = 'รอออกคำสั่ง';
+                    } else {
+                        badgeClass = 'bg-gray-100 text-gray-600 border border-gray-200';
+                        icon = '🔄';
+                    }
+
+                    actionHtml = `
+                        <span class="${badgeClass} px-3 py-1 rounded-full text-xs font-medium">
+                            ${icon} ${translateStatus(displayStatus)}
+                        </span>
+                    `;
+                }
+
+                return `
+                    <tr class="border-b hover:bg-gray-50 transition">
+                        <td class="px-6 py-4 whitespace-nowrap font-medium text-indigo-600">
+                            ${dateText}
+                        </td>
+                        <td class="px-6 py-4">
+                            <div class="font-bold text-gray-800">${req.requesterName}</div>
+                            <div class="text-xs text-gray-500">${req.requesterPosition || ''}</div>
+                        </td>
+                        <td class="px-6 py-4">
+                            <div class="font-medium text-gray-900 truncate max-w-xs" title="${req.purpose}">${req.purpose}</div>
+                            <div class="text-xs text-gray-500">ณ ${req.location}</div>
+                            ${attendeesText}
+                        </td>
+                        <td class="px-6 py-4 text-center align-middle">
+                            ${actionHtml}
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
 
                 // 3. ตรวจสอบว่ามีไฟล์คำสั่งหรือไม่ (Logic การแสดงปุ่ม)
                 // ตรวจสอบหลาย field เผื่อมีการเก็บข้อมูลแยกประเภท
